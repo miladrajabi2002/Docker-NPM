@@ -16,14 +16,26 @@
 Clone the repository in your computer.
 
 ```bash
-$ git clone https://github.com/miladrajabi2002/Docker-NPM
-$ cd Docker-NPM
+git clone https://github.com/miladrajabi2002/Docker-NPM
+cd Docker-NPM
 ```
 
-Run auto-configure file to config server auto
+Config server auto
 
 ```bash
-$ bash auto-configure.sh
+bash auto-configure.sh
+```
+
+Run docker
+
+```bash
+docker compose up -d
+```
+
+Get auto ssl
+
+```bash
+bash ssl-setup.sh
 ```
 
 
