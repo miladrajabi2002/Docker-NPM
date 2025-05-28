@@ -16,7 +16,7 @@
 Clone the repository in your computer.
 
 ```bash
-$ git clone https://github.com/bumaruf/Docker-NPM
+$ git clone https://github.com/miladrajabi2002/Docker-NPM
 $ cd Docker-NPM
 ```
 
