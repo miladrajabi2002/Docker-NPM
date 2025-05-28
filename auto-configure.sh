@@ -514,12 +514,32 @@ http {
     gzip_min_length 1024;
     gzip_proxied any;
     gzip_comp_level 6;
-    gzip_types text/plain text/css text/xml text/javascript application/json application/javascript application/xml+rss application/atom+xml image/svg+xml;
+    gzip_types
+        application/atom+xml
+        application/javascript
+        application/json
+        application/rss+xml
+        application/vnd.ms-fontobject
+        application/x-font-ttf
+        application/x-web-app-manifest+json
+        application/xhtml+xml
+        application/xml
+        font/opentype
+        image/svg+xml
+        image/x-icon
+        text/css
+        text/plain
+        text/x-component;
 
     client_body_buffer_size 128k;
     client_max_body_size ${PHP_UPLOAD_MAX_SIZE};
     client_header_buffer_size 1k;
     large_client_header_buffers 4 4k;
+
+    proxy_buffering on;
+    proxy_buffer_size 128k;
+    proxy_buffers 4 256k;
+    proxy_busy_buffers_size 256k;
 
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-XSS-Protection "1; mode=block" always;
