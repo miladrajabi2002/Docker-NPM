@@ -764,6 +764,9 @@ main() {
 
     apt-get update -y && apt-get upgrade -y
 
+    rm -fr install_bbr.log
+    rm -fr bbr.sh
+
     check_requirements
     sleep 1
     get_user_input
