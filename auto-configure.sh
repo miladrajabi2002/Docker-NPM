@@ -532,9 +532,8 @@ EOF
 cat > nginx/conf.d/default.conf << EOF
 server {
     listen 80;
-    server_name ${DOMAIN_NAME};
+    server_name t.miladrajabi.com;
     
-    # مسیر تایید Let's Encrypt
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
         try_files \$uri =404;
@@ -542,33 +541,30 @@ server {
     
     location / {
         root /var/www/html;
-		proxy_redirect off;
-		proxy_http_version 1.1;
-		proxy_set_header Upgrade \$http_upgrade;
-		proxy_set_header Connection "upgrade";
-		proxy_set_header Host \$http_host;
-		try_files \$uri \$uri/ /index.php?\$query_string;
+        index index.php index.html index.htm;
+	proxy_redirect off;
+	proxy_http_version 1.1;
+	proxy_set_header Upgrade \$http_upgrade;
+	proxy_set_header Connection "upgrade";
+	proxy_set_header Host \$http_host;
+	try_files \$uri \$uri/ /index.php?\$query_string;
 	}
     
-    # PHP processing (اگر PHP دارید)
     location ~ \.php$ {
+        root /var/www/html;
     	proxy_redirect off;
-		proxy_http_version 1.1;
-		proxy_set_header Upgrade \$http_upgrade;
-		proxy_set_header Connection "upgrade";
-		proxy_set_header Host \$http_host;
-        try_files \$uri =404;
+	proxy_http_version 1.1;
+	proxy_set_header Upgrade \$http_upgrade;
+	proxy_set_header Connection "upgrade";
+	proxy_set_header Host \$http_host;
+        try_files \$uri \$uri/ /index.php?\$query_string;
         fastcgi_pass php:9000;
         include fastcgi_params;
+        fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
         fastcgi_buffer_size 128k;
         fastcgi_buffers 4 256k;
         fastcgi_busy_buffers_size 256k;
-    }
-
-    location ~ /\. {
-        deny all;
-        access_log off;
     }
 }
 EOF
