@@ -90,7 +90,7 @@ server {
     server_name $DOMAIN;
 
     # Redirect all HTTP requests to HTTPS
-    return 301 https://$host$request_uri;
+    return 301 https://\$host\$request_uri;
 }
 
 server {
@@ -146,29 +146,30 @@ server {
 }
 EOF
     
-    # Final nginx restart    
-    log "Final nginx restart..."
-    docker compose restart nginx
+# Final nginx restart    
+log "Final nginx restart..."
+docker compose restart nginx
     
-    sleep 3
+sleep 3
     
 # Final check
-    if docker compose ps nginx | grep -q "running"; then
-        log "✅ SSL configured successfully!"
-        log "🌐 Your website is available at https://$DOMAIN"
+NGINX_STATUS=$(docker compose ps nginx --format "table {{.State}}" | tail -n +2)
+if [[ "$NGINX_STATUS" == *"running"* ]]; then
+    log "✅ SSL configured successfully!"
+    log "🌐 Your website is available at https://$DOMAIN"
 
-        # Test SSL
-        log "Testing SSL..."
-        SSL_TEST=$(curl -s -o /dev/null -w "%{http_code}" https://$DOMAIN --max-time 10 || echo "000")
-        if [ "$SSL_TEST" = "200" ]; then
-            log "✅ SSL is working correctly!"
-        else
-            warning "⚠️  SSL might have issues. HTTP Code: $SSL_TEST"
-        fi
+    # Test SSL
+    log "Testing SSL..."
+    SSL_TEST=$(curl -s -o /dev/null -w "%{http_code}" https://$DOMAIN --max-time 10 || echo "000")
+    if [ "$SSL_TEST" = "200" ]; then
+        log "✅ SSL is working correctly!"
     else
-        error "❌ nginx did not start after SSL configuration!"
-        exit 1
+        warning "⚠️  SSL might have issues. HTTP Code: $SSL_TEST"
     fi
+else
+    error "❌ nginx did not start after SSL configuration!"
+    exit 1
+fi
 
 else
     error "❌ Error obtaining SSL certificate!"
