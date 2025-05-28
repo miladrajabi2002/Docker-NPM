@@ -18,8 +18,13 @@ Clone the repository in your computer.
 ```bash
 $ git clone https://github.com/bumaruf/Docker-NPM
 $ cd Docker-NPM
-$ bash auto-configure.sh
+```
 
+Run auto-configure file to config server auto
+
+```bash
+$ bash auto-configure.sh
+```
 
 
 ## 📄 License
