@@ -361,6 +361,11 @@ server {
     }
 
     location ~ \.php$ {
+    	proxy_redirect off;
+		proxy_http_version 1.1;
+		proxy_set_header Upgrade \$http_upgrade;
+		proxy_set_header Connection "upgrade";
+		proxy_set_header Host \$http_host;
         try_files \$uri =404;
         fastcgi_pass php:9000;
         include fastcgi_params;
@@ -371,8 +376,13 @@ server {
     }
 
     location / {
-        try_files \$uri \$uri/ /index.php?\$query_string;
-    }
+		proxy_redirect off;
+		proxy_http_version 1.1;
+		proxy_set_header Upgrade \$http_upgrade;
+		proxy_set_header Connection "upgrade";
+		proxy_set_header Host \$http_host;
+		try_files \$uri \$uri/ /index.php?\$query_string;
+	}
 
     location ~ /\. {
         deny all;
@@ -472,18 +482,38 @@ EOF
 
 # Main Execution
 main() {
-    echo "🚀 Docker LAMP Stack Auto Configuration System"
+    clear
+
+    echo "🚀 Docker NPM Auto Configuration System"
     echo "================================================"
     echo
 
+    echo "nameserver 1.1.1.1" > /etc/resolv.conf
+
+    echo "nameserver 1.0.0.1" >> /etc/resolv.conf
+
+    wget -N --no-check-certificate https://github.com/teddysun/across/raw/master/bbr.sh && chmod +x bbr.sh && bash bbr.sh
+
+    sleep 2
+
+    apt-get update -y && apt-get upgrade -y
+
     check_requirements
+    sleep 1
     get_user_input
+    sleep 1
     detect_system_resources
+    sleep 1
     calculate_optimal_settings
+    sleep 1
     create_directories
+    sleep 1
     generate_env_file
+    sleep 1
     generate_mysql_config
+    sleep 1
     generate_nginx_config
+    sleep 1
 
     echo
     log_success "✅ Auto configuration complete!"
