@@ -1,2 +1,32 @@
-# Docker-NPM
-run your webbsite with docker and config server configuration Auto
+<h1 align="center">Docker-compose PHP, Nginx, MariaDB and PHPMyAdmin</h1>
+
+<!-- Tags -->
+
+<p align="center">
+  <img alt="License" src="https://img.shields.io/static/v1?label=license&message=MIT&color=ffffff&labelColor=000000">
+  <img alt="Nginx" src="https://img.shields.io/static/v1?label=Nginx&message=latest&color=ffffff&labelColor=000000">
+  <img alt="PHP" src="https://img.shields.io/static/v1?label=PHP&message=8.X&color=ffffff&labelColor=000000">
+  <img alt="MySQL" src="https://img.shields.io/static/v1?label=MySQL&message=5.7.24&color=ffffff&labelColor=000000">
+  <img alt="PHPMyAdmin" src="https://img.shields.io/static/v1?label=PHPMyAdmin&message=latest&color=ffffff&labelColor=000000">
+</p>
+<!-- Body -->
+
+## 🚀 How to run
+
+Clone the repository in your computer.
+
+```bash
+$ git clone https://github.com/bumaruf/Docker-NPM
+$ cd Docker-NPM
+$ bash auto-configure.sh
+
+
+
+## 📄 License
+
+This project is under an MIT license. See [LICENSE](LICENSE.md) for more details.
+
+---
+
+<!-- Footer -->
+Developed by [Milad Rajabi](https://github.com/miladrajabi2002).
