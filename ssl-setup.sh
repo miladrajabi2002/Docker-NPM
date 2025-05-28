@@ -107,7 +107,10 @@ server {
     ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384;
     ssl_prefer_server_ciphers off;
     ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 10m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+    ssl_buffer_size 4k;
+
 
     location ~* \.(jpg|jpeg|png|gif|ico|css|js|pdf|txt|woff|svg|ttf|eot|woff2)$ {
         expires 1y;
