@@ -540,61 +540,18 @@ server {
         try_files $uri =404;
     }
     
-    # redirect همه چیز به HTTPS
     location / {
-        return 301 https://$server_name$request_uri;
+        root /var/www/html;
+        index index.php index.html index.htm;
+        try_files $uri $uri/ /index.php?$query_string;
     }
-}
-
-server {
-    listen 443 ssl http2;
-    server_name ${DOMAIN_NAME};
-
-    root /var/www/html;
-    index index.php index.html;
-
-    ssl_certificate /etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem;
-
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384;
-    ssl_prefer_server_ciphers off;
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 10m;
-
-    location ~* \.(jpg|jpeg|png|gif|ico|css|js|pdf|txt|woff|svg|ttf|eot|woff2)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-        access_log off;
-    }
-
+    
+    # PHP processing (اگر PHP دارید)
     location ~ \.php$ {
-    	proxy_redirect off;
-		proxy_http_version 1.1;
-		proxy_set_header Upgrade \$http_upgrade;
-		proxy_set_header Connection "upgrade";
-		proxy_set_header Host \$http_host;
-        try_files \$uri =404;
-        fastcgi_pass php:9000;
+        fastcgi_pass php:9000;  # یا نام container PHP شما
+        fastcgi_index index.php;
         include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-        fastcgi_buffer_size 128k;
-        fastcgi_buffers 4 256k;
-        fastcgi_busy_buffers_size 256k;
-    }
-
-    location / {
-		proxy_redirect off;
-		proxy_http_version 1.1;
-		proxy_set_header Upgrade \$http_upgrade;
-		proxy_set_header Connection "upgrade";
-		proxy_set_header Host \$http_host;
-		try_files \$uri \$uri/ /index.php?\$query_string;
-	}
-
-    location ~ /\. {
-        deny all;
-        access_log off;
+        fastcgi_param SCRIPT_FILENAME /var/www/html$fastcgi_script_name;
     }
 }
 EOF
