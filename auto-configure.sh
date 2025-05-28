@@ -710,8 +710,8 @@ main() {
     echo "  - data/my.cnf"
     echo "  - nginx/nginx.conf & nginx/conf.d/default.conf"
     echo "📋 Next steps:"
-    echo "1. Run: bash ssl-setup.sh"
-    echo "2. Run: docker compose up -d"
+    echo "1. Run: docker compose up -d"
+    echo "2. Run: bash ssl-setup.sh"
     echo "3. Test the system"
     echo
     echo "🔐 Important information (save it):"
