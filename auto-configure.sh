@@ -543,7 +543,7 @@ server {
     location / {
         root /var/www/html;
         index index.php index.html index.htm;
-        try_files $uri $uri/ /index.php?$query_string;
+        try_files \$uri \$uri/ /index.php?\$query_string;
     }
     
     # PHP processing (اگر PHP دارید)
@@ -551,7 +551,7 @@ server {
         fastcgi_pass php:9000;  # یا نام container PHP شما
         fastcgi_index index.php;
         include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME /var/www/html$fastcgi_script_name;
+        fastcgi_param SCRIPT_FILENAME /var/www/html\$fastcgi_script_name;
     }
 }
 EOF
