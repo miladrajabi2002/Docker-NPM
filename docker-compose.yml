@@ -1,0 +1,106 @@
+services:
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./src:/var/www/html
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./ssl/webroot:/var/www/certbot:ro
+      - ./ssl/certs:/etc/letsencrypt:ro
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      - php
+
+  letsencrypt:
+    image: certbot/certbot:latest
+    container_name: letsencrypt
+    volumes:
+      - ./ssl/certs:/etc/letsencrypt
+      - ./ssl/webroot:/var/www/certbot
+      - ./logs/letsencrypt:/var/log/letsencrypt
+    profiles:
+      - ssl-tools
+
+  php:
+    build:
+      context: ./php
+    container_name: php
+    restart: unless-stopped
+    volumes:
+      - ./src:/var/www/html
+      - ./logs/php:/var/log/php
+    environment:
+      # PHP Configuration
+      PHP_MEMORY_LIMIT: ${PHP_MEMORY_LIMIT}
+      PHP_MAX_EXECUTION_TIME: ${PHP_MAX_EXECUTION_TIME}
+      PHP_UPLOAD_MAX_FILESIZE: ${PHP_UPLOAD_MAX_FILESIZE}
+      PHP_POST_MAX_SIZE: ${PHP_POST_MAX_SIZE}
+      PHP_MAX_INPUT_VARS: ${PHP_MAX_INPUT_VARS}
+      
+      # OPcache Configuration
+      PHP_OPCACHE_MEMORY: ${PHP_OPCACHE_MEMORY}
+      PHP_OPCACHE_MAX_FILES: ${PHP_OPCACHE_MAX_FILES}
+      PHP_OPCACHE_JIT_BUFFER: ${PHP_OPCACHE_JIT_BUFFER}
+      
+      # PHP-FPM Configuration
+      PHP_FPM_MAX_CHILDREN: ${PHP_FPM_MAX_CHILDREN}
+      PHP_FPM_START_SERVERS: ${PHP_FPM_START_SERVERS}
+      PHP_FPM_MIN_SPARE_SERVERS: ${PHP_FPM_MIN_SPARE_SERVERS}
+      PHP_FPM_MAX_SPARE_SERVERS: ${PHP_FPM_MAX_SPARE_SERVERS}
+      PHP_FPM_MAX_REQUESTS: ${PHP_FPM_MAX_REQUESTS}
+
+      # Database Connection
+      MYSQL_HOST: db
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    depends_on:
+      - db
+
+  db:
+    image: mariadb:11.4
+    container_name: mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+    volumes:
+      - ./data/mariadb:/var/lib/mysql
+      - ./data/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
+      - ./data/init:/docker-entrypoint-initdb.d:ro
+    command: >
+      --innodb-buffer-pool-size=${MYSQL_INNODB_BUFFER_POOL_SIZE}
+      --max-connections=${MYSQL_MAX_CONNECTIONS}
+      --query-cache-size=${MYSQL_QUERY_CACHE_SIZE}
+      --tmp-table-size=${MYSQL_TMP_TABLE_SIZE}
+      --max-heap-table-size=${MYSQL_MAX_HEAP_TABLE_SIZE}
+      --innodb-log-file-size=32M
+      --innodb-flush-log-at-trx-commit=2
+      --innodb-flush-method=O_DIRECT
+      --query-cache-type=1
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8587:80"
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: ${MYSQL_USER}
+      PMA_PASSWORD: ${MYSQL_PASSWORD}
+      UPLOAD_LIMIT: 1G
+      MEMORY_LIMIT: 512M
+    depends_on:
+      - db
