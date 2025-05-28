@@ -623,6 +623,11 @@ server {
     root /var/www/html;
     index index.php index.html index.htm;
 
+    # مسیر تایید Let's Encrypt
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
     # Static files
     location ~* \.(jpg|jpeg|png|gif|ico|css|js|pdf|txt|woff|woff2|svg|ttf|eot)$ {
         expires 1h;
