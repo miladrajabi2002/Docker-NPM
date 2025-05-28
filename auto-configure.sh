@@ -216,29 +216,14 @@ get_user_input() {
         fi
     done
     
-    # Environment type
-    echo "🌍 Select environment type:"
-    echo "  1) Development (localhost)"
-    echo "  2) Production (with SSL)"
-    read -p "Choose (1-2, default: 1): " ENV_TYPE
-    ENV_TYPE=${ENV_TYPE:-1}
-    
-    if [[ "$ENV_TYPE" == "2" && "$DOMAIN_NAME" != "localhost" ]]; then
-        # Email for SSL
-        while true; do
-            read -p "📧 Email for SSL certificates: " EMAIL_FOR_SSL
-            if [[ -z "$EMAIL_FOR_SSL" ]]; then
-                EMAIL_FOR_SSL="admin@$DOMAIN_NAME"
-            fi
-            if validate_email "$EMAIL_FOR_SSL"; then
-                break
-            fi
-        done
-        USE_SSL=true
-    else
-        EMAIL_FOR_SSL="admin@localhost"
-        USE_SSL=false
-    fi
+    # Email for SSL
+    while true; do
+        read -p "📧 Email for SSL (default: admin@$DOMAIN_NAME): " EMAIL_FOR_SSL
+        EMAIL_FOR_SSL=${EMAIL_FOR_SSL:-admin@$DOMAIN_NAME}
+        if validate_email "$EMAIL_FOR_SSL"; then
+            break
+        fi
+    done
     
     # Database configuration
     echo
@@ -544,9 +529,7 @@ http {
 }
 EOF
 
-    # Main server configuration
-    if [ "$USE_SSL" = true ]; then
-        cat > nginx/conf.d/default.conf << EOF
+cat > nginx/conf.d/default.conf << EOF
 server {
     listen 80;
     server_name ${DOMAIN_NAME};
@@ -554,6 +537,7 @@ server {
     # مسیر تایید Let's Encrypt
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
+        try_files $uri =404;
     }
     
     # redirect همه چیز به HTTPS
@@ -614,51 +598,6 @@ server {
     }
 }
 EOF
-    else
-        cat > nginx/conf.d/default.conf << EOF
-server {
-    listen 80;
-    server_name ${DOMAIN_NAME};
-
-    root /var/www/html;
-    index index.php index.html index.htm;
-
-    # مسیر تایید Let's Encrypt
-    location /.well-known/acme-challenge/ {
-        root /var/www/certbot;
-    }
-
-    # Static files
-    location ~* \.(jpg|jpeg|png|gif|ico|css|js|pdf|txt|woff|woff2|svg|ttf|eot)$ {
-        expires 1h;
-        add_header Cache-Control "public";
-        access_log off;
-    }
-
-    # PHP processing
-    location ~ \.php$ {
-        try_files \$uri =404;
-        fastcgi_pass php:9000;
-        fastcgi_index index.php;
-        include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-        
-        fastcgi_buffer_size 128k;
-        fastcgi_buffers 4 256k;
-        fastcgi_busy_buffers_size 256k;
-    }
-
-    location / {
-        try_files \$uri \$uri/ /index.php?\$query_string;
-    }
-
-    location ~ /\. {
-        deny all;
-        access_log off;
-    }
-}
-EOF
-    fi
     
     log_success "Nginx configuration generated successfully"
 }
