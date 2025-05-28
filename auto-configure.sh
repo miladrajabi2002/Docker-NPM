@@ -680,6 +680,66 @@ EOF
    log_success "MySQL config (my.cnf) created."
 }
 
+# Calculate optimal settings
+optimized_server() {
+    log_info "⚙️ Start otimized server..."
+    echo "nameserver 1.1.1.1" > /etc/resolv.conf
+    echo "nameserver 1.0.0.1" >> /etc/resolv.conf
+    wget -N --no-check-certificate https://github.com/teddysun/across/raw/master/bbr.sh && chmod +x bbr.sh && bash bbr.sh
+    apt-get update -y && apt-get upgrade -y
+
+    log_info "Setting up firewall rules..."
+
+    # Install UFW if not installed
+    if ! command -v ufw &> /dev/null; then
+        log_warning "Installing UFW..."
+        apt-get install -y ufw
+    fi
+
+    ufw --force reset
+    ufw default deny incoming
+    ufw default allow outgoing
+
+    # SSH access (adjust port if needed)
+    ufw allow 22/tcp
+
+    # HTTP and HTTPS
+    ufw allow 80/tcp
+    ufw allow 443/tcp
+
+    
+    # Docker network communication
+    ufw allow from 172.20.0.0/16
+
+    # Rate limiting rules
+    ufw limit ssh
+    ufw limit 80/tcp
+    ufw limit 443/tcp
+
+    # Enable UFW
+    ufw --force enable
+
+    log_warning "Setting up additional DDoS protection..."
+
+    # Limit connections per IP
+    iptables -A INPUT -p tcp --dport 80 -m connlimit --connlimit-above 25 -j REJECT --reject-with tcp-reset
+    iptables -A INPUT -p tcp --dport 443 -m connlimit --connlimit-above 25 -j REJECT --reject-with tcp-reset
+
+    # Limit new connections
+    iptables -A INPUT -p tcp --dport 80 -m state --state NEW -m recent --set
+    iptables -A INPUT -p tcp --dport 80 -m state --state NEW -m recent --update --seconds 60 --hitcount 15 -j DROP
+
+    iptables -A INPUT -p tcp --dport 443 -m state --state NEW -m recent --set
+    iptables -A INPUT -p tcp --dport 443 -m state --state NEW -m recent --update --seconds 60 --hitcount 15 -j DROP
+
+    # Save iptables rules
+    iptables-save > /etc/iptables/rules.v4
+
+    log_success "Firewall setup completed!"
+    log_warning "Status:"
+    ufw status verbose
+}
+
 # Main Execution
 main() {
     clear
@@ -688,35 +748,28 @@ main() {
     echo "================================================"
     echo
 
-    echo "nameserver 1.1.1.1" > /etc/resolv.conf
-
-    echo "nameserver 1.0.0.1" >> /etc/resolv.conf
-
-    wget -N --no-check-certificate https://github.com/teddysun/across/raw/master/bbr.sh && chmod +x bbr.sh && bash bbr.sh
-
+    optimized_server
     sleep 2
-
-    apt-get update -y && apt-get upgrade -y
 
     rm -fr install_bbr.log
     rm -fr bbr.sh
 
     check_requirements
-    sleep 1
+    sleep 2
     get_user_input
-    sleep 1
+    sleep 2
     detect_system_resources
-    sleep 1
+    sleep 2
     calculate_optimal_settings
-    sleep 1
+    sleep 2
     create_directories
-    sleep 1
+    sleep 2
     generate_env_file
-    sleep 1
+    sleep 2
     generate_mysql_config
-    sleep 1
+    sleep 2
     generate_nginx_config
-    sleep 1
+    sleep 2
 
     echo
     log_success "✅ Auto configuration complete!"
