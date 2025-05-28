@@ -537,21 +537,38 @@ server {
     # مسیر تایید Let's Encrypt
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
-        try_files $uri =404;
+        try_files \$uri =404;
     }
     
     location / {
         root /var/www/html;
-        index index.php index.html index.htm;
-        try_files \$uri \$uri/ /index.php?\$query_string;
-    }
+		proxy_redirect off;
+		proxy_http_version 1.1;
+		proxy_set_header Upgrade \$http_upgrade;
+		proxy_set_header Connection "upgrade";
+		proxy_set_header Host \$http_host;
+		try_files \$uri \$uri/ /index.php?\$query_string;
+	}
     
     # PHP processing (اگر PHP دارید)
     location ~ \.php$ {
-        fastcgi_pass php:9000;  # یا نام container PHP شما
-        fastcgi_index index.php;
+    	proxy_redirect off;
+		proxy_http_version 1.1;
+		proxy_set_header Upgrade \$http_upgrade;
+		proxy_set_header Connection "upgrade";
+		proxy_set_header Host \$http_host;
+        try_files \$uri =404;
+        fastcgi_pass php:9000;
         include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME /var/www/html\$fastcgi_script_name;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        fastcgi_buffer_size 128k;
+        fastcgi_buffers 4 256k;
+        fastcgi_busy_buffers_size 256k;
+    }
+
+    location ~ /\. {
+        deny all;
+        access_log off;
     }
 }
 EOF
@@ -693,7 +710,7 @@ main() {
     echo "  - data/my.cnf"
     echo "  - nginx/nginx.conf & nginx/conf.d/default.conf"
     echo "📋 Next steps:"
-    echo "1. Get ssl for domain"
+    echo "1. Run: bash ssl-setup.sh"
     echo "2. Run: docker compose up -d"
     echo "3. Test the system"
     echo
