@@ -6,7 +6,7 @@
   <img alt="License" src="https://img.shields.io/static/v1?label=license&message=MIT&color=ffffff&labelColor=000000">
   <img alt="Nginx" src="https://img.shields.io/static/v1?label=Nginx&message=latest&color=ffffff&labelColor=000000">
   <img alt="PHP" src="https://img.shields.io/static/v1?label=PHP&message=8.3&color=ffffff&labelColor=000000">
-  <img alt="MariaDB" src="https://img.shields.io/static/v1?label=MariaDB&message=11.4&color=ffffff&labelColor=000000">
+  <img alt="MariaDB" src="https://img.shields.io/static/v1?label=MySQL&message=11.4&color=ffffff&labelColor=000000">
   <img alt="PHPMyAdmin" src="https://img.shields.io/static/v1?label=PHPMyAdmin&message=latest&color=ffffff&labelColor=000000">
 </p>
 <!-- Body -->
