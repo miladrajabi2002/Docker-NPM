@@ -1,4 +1,4 @@
-<h1 align="center">Docker-compose PHP, Nginx, MariaDB and PHPMyAdmin</h1>
+<h1 align="center">Docker PHP, Nginx, MariaDB with PHPMyAdmin</h1>
 
 <!-- Tags -->
 
