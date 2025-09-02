@@ -113,9 +113,6 @@ install_docker_compose() {
 check_requirements() {
     log_info "Checking and installing requirements..."
     
-    # Detect OS first
-    detect_os
-    
     # Check if running as root for installation
     if [ "$(id -u)" -ne 0 ]; then
         log_error "This script requires root privileges for installation. Please run with sudo."
@@ -781,22 +778,15 @@ main() {
     rm -fr install_bbr.log
     rm -fr bbr.sh
 
+	detect_os	
     check_requirements
-    sleep 2
     get_user_input
-    sleep 2
     detect_system_resources
-    sleep 2
     calculate_optimal_settings
-    sleep 2
     create_directories
-    sleep 2
     generate_env_file
-    sleep 2
     generate_mysql_config
-    sleep 2
     generate_nginx_config
-    sleep 2
 
     echo
     log_success "✅ Auto configuration complete!"
