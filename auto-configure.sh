@@ -679,89 +679,82 @@ EOF
 
 # Calculate optimal settings
 optimized_server() {
-    log_info "⚙️ Start optimized server..."
-    echo "nameserver 1.1.1.1" > /etc/resolv.conf
-    echo "nameserver 1.0.0.1" >> /etc/resolv.conf
-    
-    # Install BBR
-    wget -N --no-check-certificate https://github.com/teddysun/across/raw/master/bbr.sh && chmod +x bbr.sh && bash bbr.sh
-    apt-get update -y && apt-get upgrade -y
+ log_info "⚙️ Start optimized server..."
+ 
+ echo "nameserver 1.1.1.1" > /etc/resolv.conf
+ echo "nameserver 1.0.0.1" >> /etc/resolv.conf
+ 
+ # Install BBR
+ wget -N --no-check-certificate https://github.com/teddysun/across/raw/master/bbr.sh && chmod +x bbr.sh && bash bbr.sh
+ apt-get update -y && apt-get upgrade -y
 
-    log_info "Setting up firewall rules..."
+ log_info "Setting up firewall rules..."
 
-    # Install UFW if not installed
-    if ! command -v ufw &> /dev/null; then
-        log_warning "Installing UFW..."
-        apt-get install -y ufw
-    fi
+ # Install UFW if not installed
+ if ! command -v ufw &> /dev/null; then
+ log_warning "Installing UFW..."
+ apt-get install -y ufw
+ fi
 
-    ufw --force reset
-    ufw default deny incoming
-    ufw default allow outgoing
+ ufw --force reset
+ ufw default deny incoming
+ ufw default allow outgoing
 
-    # SSH access (adjust port if needed)
-    ufw allow 22/tcp
+ # SSH access (adjust port if needed)
+ ufw allow 22/tcp
 
-    # HTTP and HTTPS
-    ufw allow 80/tcp
-    ufw allow 443/tcp
+ # HTTP and HTTPS
+ ufw allow 80/tcp
+ ufw allow 443/tcp
 
-    # Docker network communication
-    ufw allow from 172.20.0.0/16
+ # Docker network communication
+ ufw allow from 172.20.0.0/16
 
-    # Rate limiting rules
-    ufw limit ssh
-    ufw limit 80/tcp
-    ufw limit 443/tcp
+ # Rate limiting rules
+ ufw limit ssh
+ ufw limit 80/tcp
+ ufw limit 443/tcp
 
-    # Enable UFW
-    ufw --force enable
+ # Enable UFW
+ ufw --force enable
 
-    log_info "Setting up additional DDoS protection..."
+ log_info "Setting up additional DDoS protection..."
 
-    # Limit connections per IP
-    iptables -A INPUT -p tcp --dport 80 -m connlimit --connlimit-above 25 -j REJECT --reject-with tcp-reset
-    iptables -A INPUT -p tcp --dport 443 -m connlimit --connlimit-above 25 -j REJECT --reject-with tcp-reset
+ # Limit connections per IP
+ iptables -A INPUT -p tcp --dport 80 -m connlimit --connlimit-above 25 -j REJECT --reject-with tcp-reset
+ iptables -A INPUT -p tcp --dport 443 -m connlimit --connlimit-above 25 -j REJECT --reject-with tcp-reset
 
-    # Limit new connections
-    iptables -A INPUT -p tcp --dport 80 -m state --state NEW -m recent --set
-    iptables -A INPUT -p tcp --dport 80 -m state --state NEW -m recent --update --seconds 60 --hitcount 15 -j DROP
+ # Limit new connections
+ iptables -A INPUT -p tcp --dport 80 -m state --state NEW -m recent --set
+ iptables -A INPUT -p tcp --dport 80 -m state --state NEW -m recent --update --seconds 60 --hitcount 15 -j DROP
 
-    iptables -A INPUT -p tcp --dport 443 -m state --state NEW -m recent --set
-    iptables -A INPUT -p tcp --dport 443 -m state --state NEW -m recent --update --seconds 60 --hitcount 15 -j DROP
+ iptables -A INPUT -p tcp --dport 443 -m state --state NEW -m recent --set
+ iptables -A INPUT -p tcp --dport 443 -m state --state NEW -m recent --update --seconds 60 --hitcount 15 -j DROP
 
-    # Save iptables rules properly
-    log_info "Saving iptables rules..."
-    
-    # Create iptables directory if it doesn't exist
-    mkdir -p /etc/iptables
-    
-    # Save IPv4 rules
-    iptables-save > /etc/iptables/rules.v4
-    
-    # Install and configure iptables-persistent for auto-loading rules
-    case $OS in
-        ubuntu|debian)
-            # Install iptables-persistent
-            DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent netfilter-persistent
-            
-            # Save rules using the persistent method
-            netfilter-persistent save
-            
-            # Enable service
-            systemctl enable netfilter-persistent
-            ;;
-        centos|rhel|fedora)
-            # For RHEL-based systems, save to appropriate location
-            if [ -d /etc/sysconfig ]; then
-                iptables-save > /etc/sysconfig/iptables
-            fi
-            ;;
-    esac
+ # Save iptables rules properly
+ log_info "Saving iptables rules..."
+ 
+ # Create iptables directory if it doesn't exist
+ mkdir -p /etc/iptables
+ 
+ # Save IPv4 rules
+ iptables-save > /etc/iptables/rules.v4
+ 
+ # Try to install iptables-persistent (works on Debian/Ubuntu)
+ if command -v apt-get &> /dev/null; then
+ DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent netfilter-persistent
+ netfilter-persistent save
+ systemctl enable netfilter-persistent
+ elif command -v yum &> /dev/null; then
+ # For RHEL-based systems
+ if [ -d /etc/sysconfig ]; then
+ iptables-save > /etc/sysconfig/iptables
+ fi
+ fi
 
-    log_success "Firewall and DDoS protection setup completed!"
-    log_info "Firewall status:"
-    ufw status verbose
+ log_success "Firewall and DDoS protection setup completed!"
+ log_info "Firewall status:"
+ ufw status verbose
 }
 
 # Main Execution
