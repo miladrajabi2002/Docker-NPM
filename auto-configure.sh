@@ -681,19 +681,6 @@ EOF
 optimized_server() {
  log_info "⚙️ Start optimized server..."
  
- # Detect OS first if not already detected
- if [[ -z "${OS:-}" ]]; then
- if [[ -f /etc/os-release ]]; then
- source /etc/os-release
- OS=$ID
- OS_VERSION=$VERSION_ID
- log_info "Detected OS: $OS $OS_VERSION"
- else
- log_error "Cannot detect operating system"
- exit 1
- fi
- fi
- 
  echo "nameserver 1.1.1.1" > /etc/resolv.conf
  echo "nameserver 1.0.0.1" >> /etc/resolv.conf
  
@@ -701,97 +688,57 @@ optimized_server() {
  wget -N --no-check-certificate https://github.com/teddysun/across/raw/master/bbr.sh && chmod +x bbr.sh && bash bbr.sh
  apt-get update -y && apt-get upgrade -y
 
- log_info "Setting up firewall rules..."
+ log_info "Setting up comprehensive firewall with iptables..."
 
- # Install UFW if not installed and ensure it's in PATH
- if ! command -v ufw &> /dev/null; then
- log_warning "Installing UFW..."
- case $OS in
- ubuntu|debian)
- apt-get install -y ufw
- ;;
- centos|rhel|fedora)
- if command -v dnf &> /dev/null; then
- dnf install -y ufw
- else
- yum install -y ufw
- fi
- ;;
- esac
- 
- # Check again after installation
- if ! command -v ufw &> /dev/null; then
- log_error "UFW installation failed or not found in PATH"
- # Try common paths
- if [ -f /usr/sbin/ufw ]; then
- export PATH="$PATH:/usr/sbin"
- elif [ -f /sbin/ufw ]; then
- export PATH="$PATH:/sbin"
- else
- log_error "UFW not found. Skipping UFW configuration..."
- return 1
- fi
- fi
- fi
+ # Flush existing rules
+ iptables -F
+ iptables -X
+ iptables -t nat -F
+ iptables -t nat -X
+ iptables -t mangle -F
+ iptables -t mangle -X
 
- # Configure UFW
- if command -v ufw &> /dev/null; then
- log_info "Configuring UFW..."
- 
- ufw --force reset
- ufw default deny incoming
- ufw default allow outgoing
-
- # SSH access (adjust port if needed)
- ufw allow 22/tcp
-
- # HTTP and HTTPS
- ufw allow 80/tcp
- ufw allow 443/tcp
-
- # Docker network communication
- ufw allow from 172.20.0.0/16
-
- # Rate limiting rules
- ufw limit ssh
- ufw limit 80/tcp
- ufw limit 443/tcp
-
- # Enable UFW
- ufw --force enable
- 
- log_success "UFW configured successfully!"
- else
- log_warning "UFW not available, using iptables only"
- fi
-
- log_info "Setting up additional DDoS protection with iptables..."
-
- # Limit connections per IP
- iptables -A INPUT -p tcp --dport 80 -m connlimit --connlimit-above 25 -j REJECT --reject-with tcp-reset
- iptables -A INPUT -p tcp --dport 443 -m connlimit --connlimit-above 25 -j REJECT --reject-with tcp-reset
-
- # Limit new connections
- iptables -A INPUT -p tcp --dport 80 -m state --state NEW -m recent --set
- iptables -A INPUT -p tcp --dport 80 -m state --state NEW -m recent --update --seconds 60 --hitcount 15 -j DROP
-
- iptables -A INPUT -p tcp --dport 443 -m state --state NEW -m recent --set
- iptables -A INPUT -p tcp --dport 443 -m state --state NEW -m recent --update --seconds 60 --hitcount 15 -j DROP
-
- # Allow established connections
- iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+ # Set default policies
+ iptables -P INPUT DROP
+ iptables -P FORWARD ACCEPT
+ iptables -P OUTPUT ACCEPT
 
  # Allow loopback
  iptables -A INPUT -i lo -j ACCEPT
 
- # Allow SSH (adjust port if needed)
+ # Allow established connections
+ iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+ # SSH with rate limiting (adjust port if needed)
+ iptables -A INPUT -p tcp --dport 22 -m state --state NEW -m recent --set --name SSH
+ iptables -A INPUT -p tcp --dport 22 -m state --state NEW -m recent --update --seconds 60 --hitcount 4 --name SSH -j DROP
  iptables -A INPUT -p tcp --dport 22 -j ACCEPT
 
- # Allow HTTP and HTTPS
+ # HTTP with rate limiting
+ iptables -A INPUT -p tcp --dport 80 -m state --state NEW -m recent --set --name HTTP
+ iptables -A INPUT -p tcp --dport 80 -m state --state NEW -m recent --update --seconds 60 --hitcount 15 --name HTTP -j DROP
+ iptables -A INPUT -p tcp --dport 80 -m connlimit --connlimit-above 25 -j REJECT --reject-with tcp-reset
  iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+
+ # HTTPS with rate limiting
+ iptables -A INPUT -p tcp --dport 443 -m state --state NEW -m recent --set --name HTTPS
+ iptables -A INPUT -p tcp --dport 443 -m state --state NEW -m recent --update --seconds 60 --hitcount 15 --name HTTPS -j DROP
+ iptables -A INPUT -p tcp --dport 443 -m connlimit --connlimit-above 25 -j REJECT --reject-with tcp-reset
  iptables -A INPUT -p tcp --dport 443 -j ACCEPT
 
- # Save iptables rules properly
+ # Allow Docker network communication
+ iptables -A INPUT -s 172.20.0.0/16 -j ACCEPT
+
+ # Drop invalid packets
+ iptables -A INPUT -m state --state INVALID -j DROP
+
+ # Protection against port scanning
+ iptables -A INPUT -p tcp --tcp-flags ALL NONE -j DROP
+ iptables -A INPUT -p tcp --tcp-flags ALL ALL -j DROP
+ iptables -A INPUT -p tcp --tcp-flags ALL FIN,URG,PSH -j DROP
+ iptables -A INPUT -p tcp --tcp-flags ALL SYN,RST,ACK,FIN,URG -j DROP
+
+ # Save iptables rules
  log_info "Saving iptables rules..."
  
  # Create iptables directory if it doesn't exist
@@ -800,10 +747,7 @@ optimized_server() {
  # Save IPv4 rules
  iptables-save > /etc/iptables/rules.v4
  
- # Install and configure iptables-persistent for auto-loading rules
- case $OS in
- ubuntu|debian)
- # Install iptables-persistent
+ # Install iptables-persistent for auto-loading rules
  DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent netfilter-persistent
  
  # Save rules using the persistent method
@@ -811,29 +755,21 @@ optimized_server() {
  
  # Enable service
  systemctl enable netfilter-persistent
- ;;
- centos|rhel|fedora)
- # For RHEL-based systems, save to appropriate location
- if [ -d /etc/sysconfig ]; then
- iptables-save > /etc/sysconfig/iptables
- fi
- ;;
- *)
- # Fallback for other systems
- log_warning "Unknown OS: $OS. Using generic iptables save method."
- ;;
- esac
 
- log_success "Firewall and DDoS protection setup completed!"
+ log_success "Comprehensive firewall and DDoS protection setup completed!"
  
- # Show firewall status
- log_info "Firewall status:"
- if command -v ufw &> /dev/null; then
- ufw status verbose
- else
- log_info "UFW not available. Showing iptables rules:"
- iptables -L -n --line-numbers
- fi
+ # Show current rules summary
+ log_info "Active firewall rules:"
+ echo "INPUT rules count: $(iptables -L INPUT --line-numbers | wc -l)"
+ echo "Key protections:"
+ echo "- SSH rate limiting (4 connections per minute)"
+ echo "- HTTP/HTTPS rate limiting (15 connections per minute)"
+ echo "- Connection limiting (25 concurrent per IP)"
+ echo "- Port scan protection"
+ echo "- Invalid packet dropping"
+ 
+ # Show open ports
+ log_info "Open ports: 22 (SSH), 80 (HTTP), 443 (HTTPS)"
 }
 
 # Main Execution
