@@ -681,6 +681,19 @@ EOF
 optimized_server() {
  log_info "⚙️ Start optimized server..."
  
+ # Detect OS first if not already detected
+ if [[ -z "${OS:-}" ]]; then
+ if [[ -f /etc/os-release ]]; then
+ source /etc/os-release
+ OS=$ID
+ OS_VERSION=$VERSION_ID
+ log_info "Detected OS: $OS $OS_VERSION"
+ else
+ log_error "Cannot detect operating system"
+ exit 1
+ fi
+ fi
+ 
  echo "nameserver 1.1.1.1" > /etc/resolv.conf
  echo "nameserver 1.0.0.1" >> /etc/resolv.conf
  
@@ -690,12 +703,41 @@ optimized_server() {
 
  log_info "Setting up firewall rules..."
 
- # Install UFW if not installed
+ # Install UFW if not installed and ensure it's in PATH
  if ! command -v ufw &> /dev/null; then
  log_warning "Installing UFW..."
+ case $OS in
+ ubuntu|debian)
  apt-get install -y ufw
+ ;;
+ centos|rhel|fedora)
+ if command -v dnf &> /dev/null; then
+ dnf install -y ufw
+ else
+ yum install -y ufw
+ fi
+ ;;
+ esac
+ 
+ # Check again after installation
+ if ! command -v ufw &> /dev/null; then
+ log_error "UFW installation failed or not found in PATH"
+ # Try common paths
+ if [ -f /usr/sbin/ufw ]; then
+ export PATH="$PATH:/usr/sbin"
+ elif [ -f /sbin/ufw ]; then
+ export PATH="$PATH:/sbin"
+ else
+ log_error "UFW not found. Skipping UFW configuration..."
+ return 1
+ fi
+ fi
  fi
 
+ # Configure UFW
+ if command -v ufw &> /dev/null; then
+ log_info "Configuring UFW..."
+ 
  ufw --force reset
  ufw default deny incoming
  ufw default allow outgoing
@@ -717,8 +759,13 @@ optimized_server() {
 
  # Enable UFW
  ufw --force enable
+ 
+ log_success "UFW configured successfully!"
+ else
+ log_warning "UFW not available, using iptables only"
+ fi
 
- log_info "Setting up additional DDoS protection..."
+ log_info "Setting up additional DDoS protection with iptables..."
 
  # Limit connections per IP
  iptables -A INPUT -p tcp --dport 80 -m connlimit --connlimit-above 25 -j REJECT --reject-with tcp-reset
@@ -731,6 +778,19 @@ optimized_server() {
  iptables -A INPUT -p tcp --dport 443 -m state --state NEW -m recent --set
  iptables -A INPUT -p tcp --dport 443 -m state --state NEW -m recent --update --seconds 60 --hitcount 15 -j DROP
 
+ # Allow established connections
+ iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+ # Allow loopback
+ iptables -A INPUT -i lo -j ACCEPT
+
+ # Allow SSH (adjust port if needed)
+ iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+
+ # Allow HTTP and HTTPS
+ iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+ iptables -A INPUT -p tcp --dport 443 -j ACCEPT
+
  # Save iptables rules properly
  log_info "Saving iptables rules..."
  
@@ -740,21 +800,40 @@ optimized_server() {
  # Save IPv4 rules
  iptables-save > /etc/iptables/rules.v4
  
- # Try to install iptables-persistent (works on Debian/Ubuntu)
- if command -v apt-get &> /dev/null; then
+ # Install and configure iptables-persistent for auto-loading rules
+ case $OS in
+ ubuntu|debian)
+ # Install iptables-persistent
  DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent netfilter-persistent
+ 
+ # Save rules using the persistent method
  netfilter-persistent save
+ 
+ # Enable service
  systemctl enable netfilter-persistent
- elif command -v yum &> /dev/null; then
- # For RHEL-based systems
+ ;;
+ centos|rhel|fedora)
+ # For RHEL-based systems, save to appropriate location
  if [ -d /etc/sysconfig ]; then
  iptables-save > /etc/sysconfig/iptables
  fi
- fi
+ ;;
+ *)
+ # Fallback for other systems
+ log_warning "Unknown OS: $OS. Using generic iptables save method."
+ ;;
+ esac
 
  log_success "Firewall and DDoS protection setup completed!"
+ 
+ # Show firewall status
  log_info "Firewall status:"
+ if command -v ufw &> /dev/null; then
  ufw status verbose
+ else
+ log_info "UFW not available. Showing iptables rules:"
+ iptables -L -n --line-numbers
+ fi
 }
 
 # Main Execution
