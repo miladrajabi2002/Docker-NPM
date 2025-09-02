@@ -682,9 +682,11 @@ EOF
 
 # Calculate optimal settings
 optimized_server() {
-    log_info "⚙️ Start otimized server..."
+    log_info "⚙️ Start optimized server..."
     echo "nameserver 1.1.1.1" > /etc/resolv.conf
     echo "nameserver 1.0.0.1" >> /etc/resolv.conf
+    
+    # Install BBR
     wget -N --no-check-certificate https://github.com/teddysun/across/raw/master/bbr.sh && chmod +x bbr.sh && bash bbr.sh
     apt-get update -y && apt-get upgrade -y
 
@@ -707,7 +709,6 @@ optimized_server() {
     ufw allow 80/tcp
     ufw allow 443/tcp
 
-    
     # Docker network communication
     ufw allow from 172.20.0.0/16
 
@@ -719,7 +720,7 @@ optimized_server() {
     # Enable UFW
     ufw --force enable
 
-    log_warning "Setting up additional DDoS protection..."
+    log_info "Setting up additional DDoS protection..."
 
     # Limit connections per IP
     iptables -A INPUT -p tcp --dport 80 -m connlimit --connlimit-above 25 -j REJECT --reject-with tcp-reset
@@ -732,11 +733,37 @@ optimized_server() {
     iptables -A INPUT -p tcp --dport 443 -m state --state NEW -m recent --set
     iptables -A INPUT -p tcp --dport 443 -m state --state NEW -m recent --update --seconds 60 --hitcount 15 -j DROP
 
-    # Save iptables rules
+    # Save iptables rules properly
+    log_info "Saving iptables rules..."
+    
+    # Create iptables directory if it doesn't exist
+    mkdir -p /etc/iptables
+    
+    # Save IPv4 rules
     iptables-save > /etc/iptables/rules.v4
+    
+    # Install and configure iptables-persistent for auto-loading rules
+    case $OS in
+        ubuntu|debian)
+            # Install iptables-persistent
+            DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent netfilter-persistent
+            
+            # Save rules using the persistent method
+            netfilter-persistent save
+            
+            # Enable service
+            systemctl enable netfilter-persistent
+            ;;
+        centos|rhel|fedora)
+            # For RHEL-based systems, save to appropriate location
+            if [ -d /etc/sysconfig ]; then
+                iptables-save > /etc/sysconfig/iptables
+            fi
+            ;;
+    esac
 
-    log_success "Firewall setup completed!"
-    log_warning "Status:"
+    log_success "Firewall and DDoS protection setup completed!"
+    log_info "Firewall status:"
     ufw status verbose
 }
 
